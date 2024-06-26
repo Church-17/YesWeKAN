@@ -4,23 +4,26 @@ from .base import LayerKAN
 from ..ops.spline import fit_spline_coef
 from ..ops.grid import build_adaptive_grid
 
-from typing import Tuple, List, Any, Union, Callable
+from typing import Callable
 
 
 class DenseKAN(Layer, LayerKAN):
     def __init__(
         self,
         units: int,
-        use_bias: bool=True,
-        grid_size: int=5,
-        spline_order: int=3,
-        grid_range: Union[Tuple[float], List[float]]=(-1.0, 1.0),
-        spline_initialize_stddev: float=0.1,
-        basis_activation: Union[str, Callable]='silu',
-        dtype=tf.float32,
+        use_bias: bool = True,
+        grid_size: int = 5,
+        spline_order: int = 3,
+        grid_range: tuple[float] | list[float] = (-1.0, 1.0),
+        spline_initialize_stddev: float = 0.1,
+        basis_activation: str | Callable = 'silu',
+        dtype = tf.float32,
         **kwargs
     ):
+        # Execute __init__ of superclass
         super(DenseKAN, self).__init__(dtype=dtype, **kwargs)
+
+        # Save parameters in class
         self.units = units
         self.grid_size = grid_size
         self.spline_order = spline_order
@@ -28,11 +31,10 @@ class DenseKAN(Layer, LayerKAN):
         self.basis_activation = basis_activation
         self.use_bias = use_bias
 
-        # initialize parameters
+        # Initialize parameters
         self.spline_initialize_stddev = spline_initialize_stddev
 
-    def build(self, input_shape: Any):
-        # input_shape (batch_size, dim1, dim2, ..., in_size)
+    def build(self, input_shape):
         if isinstance(input_shape, int):
             in_size = input_shape
         else:
@@ -119,6 +121,7 @@ class DenseKAN(Layer, LayerKAN):
             spline_out += self.bias
 
         return spline_out
+    
     def _check_and_reshape_inputs(self, inputs):
         shape = tf.shape(inputs)
         ndim = inputs.shape.rank  # Ottiene il numero di dimensioni del tensore
