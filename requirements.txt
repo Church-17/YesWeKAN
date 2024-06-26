@@ -1,0 +1,4 @@
+tensorflow
+matplotlib
+ipykernel
+scikit-learn
