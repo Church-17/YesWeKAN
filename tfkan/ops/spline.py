@@ -3,22 +3,17 @@ import tensorflow as tf
 
 def calc_spline_values(x: tf.Tensor, grid: tf.Tensor, spline_order: int):
     """
-    Calculate B-spline values for the input tensor.
+    Calculate B-spline values for the input tensor
 
     Parameters
-    ----------
-    x : tf.Tensor
-        The input tensor with shape (batch_size, in_size).
-    grid : tf.Tensor
-        The grid tensor with shape (in_size, grid_size + 2 * spline_order + 1).
-    spline_order : int
-        The spline order.
+    - `x: tf.Tensor` Input tensor with shape `(batch_size, in_size)`
+    - `grid: tf.Tensor` Grid tensor with shape `(in_size, grid_size + 2 * spline_order + 1)`
+    - `spline_order: int` Spline order
 
-    Returns: tf.Tensor
-        B-spline bases tensor of shape (batch_size, in_size, grid_size + spline_order).
+    Returns: `tf.Tensor` B-spline bases tensor with shape (batch_size, in_size, grid_size + spline_order)
     """
-    assert x.shape.rank == 2
 
+    assert x.shape.rank == 2
     
     # add a extra dimension to do broadcasting with shape (batch_size, in_size, 1)
     x = tf.expand_dims(x, axis=-1)
@@ -30,28 +25,19 @@ def calc_spline_values(x: tf.Tensor, grid: tf.Tensor, spline_order: int):
     bases = tf.cast(bases, x.dtype)
     
     # iter to calculate the B-spline values
-    for k in range(1, spline_order + 1):
+    for k in range(1, spline_order+1):
         bases = (
-            (x - grid[:, : -(k + 1)]) / (grid[:, k:-1] - grid[:, : -(k + 1)])
-            * bases[:, :, :-1]
+            (x - grid[:, :-(k+1)]) / (grid[:, k:-1] - grid[:, :-(k+1)]) * bases[:, :, :-1]
         ) + (
-            (grid[:, k + 1 :] - x) / (grid[:, k + 1 :] - grid[:, 1:(-k)])
-            * bases[:, :, 1:]
+            (grid[:, k+1:] - x) / (grid[:, k+1:] - grid[:, 1:-k]) * bases[:, :, 1:]
         )
 
     return bases
 
 
-def fit_spline_coef(
-        x: tf.Tensor, 
-        y: tf.Tensor, 
-        grid : tf.Tensor, 
-        spline_order: int,
-        l2_reg: float=0.0,
-        fast: bool=True
-    ):
+def fit_spline_coef(x: tf.Tensor, y: tf.Tensor, grid: tf.Tensor, spline_order: int, l2_reg: float = 0, fast: bool = True):
     """
-    fit the spline coefficients for given spline input and spline output tensors,\n
+    Fit the spline coefficients for given spline input and spline output tensors,\n
     the formula is spline output `y_{i,j} = sum_{k=1}^{grid_size + spline_order} coef_{i,j,k} * B_{k}(x_i)`\n
     in which, `i=1:in_size, j=1:out_size`. written in matrix form, `Y = B @ coef`,\n
     - `Y` with shape `(batch_size, in_size, out_size)`
@@ -60,25 +46,15 @@ def fit_spline_coef(
 
     `in_size` is a independent dimension, `coef` transform the `grid_size + spline_order` to `out_size`
 
-    Parameters
-    ----------
-    x : tf.Tensor
-        The given spline input tensor with shape `(batch_size, in_size)`
-    y : tf.Tensor
-        The given spline output tensor with shape `(batch_size, in_size, out_size)`
-    grid : tf.Tensor
-        The spline grid tensor with shape `(in_size, grid_size + 2 * spline_order + 1)`
-    spline_order : int
-        The spline order
-    l2_reg : float, optional
-        The L2 regularization factor for the least square solver, by default `0.0`
-    fast : bool, optional
-        Whether to use the fast solver for the least square problem, by default `True`
+    Parameters:
+    - `x: tf.Tensor` Spline input tensor with shape `(batch_size, in_size)`
+    - `y: tf.Tensor` Spline output tensor with shape `(batch_size, in_size, out_size)`
+    - `grid: tf.Tensor` Spline grid tensor with shape `(in_size, grid_size + 2 * spline_order + 1)`
+    - `spline_order: int` Spline order
+    - `l2_reg: float` L2 regularization factor for the least square solver
+    - `fast: bool` Whether to use the fast solver for the least square problem
     
-    Returns
-    -------
-    coef : tf.Tensor
-        The spline coefficients tensor with shape `(in_size, grid_size + spline_order, out_size)`
+    Returns: `tf.Tensor` Spline coefficients tensor with shape `(in_size, grid_size + spline_order, out_size)`
     """
 
     # evaluate the B-spline bases to get B_{k}(x_i)

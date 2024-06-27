@@ -9,20 +9,15 @@ class LayerKAN:
     def __init__(self, **kwargs):
         pass
 
-    def calc_spline_output(self, inputs):
+    def calc_spline_output(self, inputs: tf.Tensor):
         """
-        Calculate the spline output, each feature of each sample is mapped to `out_size` features, \
+        Calculate the spline output, each feature of each sample is mapped to `out_size` features,
         using `out_size` different B-spline basis functions, so the output shape is `(batch_size, in_size, out_size)`
 
-        Parameters
-        ----------
-        inputs : tf.Tensor
-            the input tensor with shape `(batch_size, in_size)`
+        Parameters:
+        - `inputs: tf.Tensor` Tensor with shape `(batch_size, in_size)`
         
-        Returns
-        -------
-        spline_out : tf.Tensor
-            the output tensor with shape `(batch_size, in_size, out_size)`
+        Returns: `tf.Tensor` Spline output tensor with shape `(batch_size, in_size, out_size)`
         """
         # calculate the B-spline output
         spline_in = calc_spline_values(inputs, self.grid, self.spline_order) # (B, in_size, grid_basis_size)

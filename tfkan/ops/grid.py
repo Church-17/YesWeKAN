@@ -1,37 +1,18 @@
 import tensorflow as tf
 
-
-def build_adaptive_grid(
-    x: tf.Tensor, 
-    grid_size: int, 
-    spline_order: int, 
-    grid_eps: float=0.02, 
-    margin: float=0.01,
-    dtype=tf.float32
-) -> tf.Tensor:
+def build_adaptive_grid(x: tf.Tensor,  grid_size: int,  spline_order: int,  grid_eps: float = 0.02,  margin: float = 0.01, dtype: tf.DType = tf.float32) -> tf.Tensor:
     """
-    construct the adaptive grid based on the input tensor
+    Construct the adaptive grid based on input tensor
 
-    Parameters
-    ----------
-    x : tf.Tensor
-        the input tensor with shape (batch_size, in_size)
-    grid_size : int
-        the grid size
-    spline_order : int
-        the spline order
-    grid_eps : float, optional
-        the weight for combining the adaptive grid and uniform grid, default to `0.02`
-    margin : float, optional
-        the margin for extending the grid, default to `0.01`
-    dtype : tf.DType, optional
-        set the data type for the grid, default to `tf.float32`
+    Parameters:
+    - `x: tf.Tensor` Input tensor with shape `(batch_size, in_size)`
+    - `grid_size: int` Grid size
+    - `spline_order: int` Spline order
+    - `grid_eps: float` Weight for combining the adaptive grid and uniform grid
+    - `margin: float` Margin for extending the grid
+    - `dtype: DType` Data type for the grid
 
-    Returns
-    -------
-    grid : tf.Tensor
-        The adaptive grid built from the input tensor \
-        with shape `(in_size, grid_size + 2 * spline_order + 1)`
+    Returns: `tf.Tensor` Adaptive grid with shape `(in_size, grid_size + 2 * spline_order + 1)`
     """
 
     # sort the inputs and build new grid according to the quantiles
@@ -52,14 +33,11 @@ def build_adaptive_grid(
 
     # extend left and right bound according to the spline order
     # grid with shape (grid_size + 2 * spline_order + 1, in_size)
-    grid = tf.concat(
-        [
-            grid[:1] - step * tf.range(spline_order, 0, -1, dtype=dtype)[:,None],
-            grid,
-            grid[-1:] + step * tf.range(1, spline_order + 1, dtype=dtype)[:,None],
-        ],
-        axis=0
-    )
+    grid = tf.concat([
+        grid[:1] - step * tf.range(spline_order, 0, -1, dtype=dtype)[:,None],
+        grid,
+        grid[-1:] + step * tf.range(1, spline_order + 1, dtype=dtype)[:,None],
+    ], axis=0)
 
     # transpose the grid to (in_size, grid_size + 2 * spline_order + 1)
     grid = tf.transpose(grid)

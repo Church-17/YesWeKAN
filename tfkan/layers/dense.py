@@ -8,8 +8,7 @@ from typing import Callable
 
 
 class DenseKAN(Layer, LayerKAN):
-    def __init__(
-        self,
+    def __init__(self,
         units: int,
         use_bias: bool = True,
         grid_size: int = 5,
@@ -141,11 +140,7 @@ class DenseKAN(Layer, LayerKAN):
 
         return inputs, orig_shape
 
-    def update_grid_from_samples(self, 
-            inputs: tf.Tensor, 
-            margin: float=0.01,
-            grid_eps: float=0.01
-        ):
+    def update_grid_from_samples(self, inputs: tf.Tensor, margin: float = 0.01, grid_eps: float = 0.01):
         # check the inputs, and reshape inputs into 2D tensor (-1, in_size)
         inputs, _ = self._check_and_reshape_inputs(inputs)
 
@@ -163,13 +158,7 @@ class DenseKAN(Layer, LayerKAN):
         self.spline_kernel.assign(updated_kernel)
     
 
-    def extend_grid_from_samples(self, 
-            inputs: tf.Tensor, 
-            extend_grid_size: int,
-            margin: float=0.01,
-            grid_eps: float=0.01,
-            **kwargs
-        ):
+    def extend_grid_from_samples(self, inputs: tf.Tensor, extend_grid_size: int, margin: float = 0.01, grid_eps: float = 0.01, l2_reg: float = 0, fast: bool = True):
         # check extend_grid_size
         try:
             assert extend_grid_size >= self.grid_size
@@ -187,7 +176,6 @@ class DenseKAN(Layer, LayerKAN):
         grid = build_adaptive_grid(inputs, extend_grid_size, self.spline_order, grid_eps, margin, self.dtype)
 
         # update the spline kernel using the new grid and LS method
-        l2_reg, fast = kwargs.pop("l2_reg", 0), kwargs.pop("fast", True)
         updated_kernel = fit_spline_coef(inputs, spline_out, grid, self.spline_order, l2_reg, fast)
 
         # update the grid and spline kernel
