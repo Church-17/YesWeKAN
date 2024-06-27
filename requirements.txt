@@ -2,3 +2,4 @@ tensorflow
 matplotlib
 ipykernel
 scikit-learn
+pandas

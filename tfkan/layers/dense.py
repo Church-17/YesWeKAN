@@ -1,13 +1,12 @@
+from typing import Callable
 import tensorflow as tf
 from keras import Layer
-from .base import LayerKAN
-from ..ops.spline import fit_spline_coef
+
+from ..ops.spline import fit_spline_coef, calc_spline_values
 from ..ops.grid import build_adaptive_grid
 
-from typing import Callable
 
-
-class DenseKAN(Layer, LayerKAN):
+class DenseKAN(Layer):
     def __init__(self,
         units: int,
         use_bias: bool = True,
@@ -20,7 +19,7 @@ class DenseKAN(Layer, LayerKAN):
         **kwargs
     ):
         # Execute __init__ of superclass
-        super(DenseKAN, self).__init__(dtype=dtype, **kwargs)
+        super().__init__(dtype=dtype, **kwargs)
 
         # Save parameters in class
         self.units = units
@@ -123,7 +122,7 @@ class DenseKAN(Layer, LayerKAN):
     
     def _check_and_reshape_inputs(self, inputs):
         shape = tf.shape(inputs)
-        ndim = inputs.shape.rank  # Ottiene il numero di dimensioni del tensore
+        ndim = len(inputs.shape)  # Ottiene il numero di dimensioni del tensore
         try:
             assert ndim >= 2
         except AssertionError:
@@ -139,6 +138,23 @@ class DenseKAN(Layer, LayerKAN):
         inputs = tf.reshape(inputs, (-1, self.in_size))
 
         return inputs, orig_shape
+    
+    def calc_spline_output(self, inputs: tf.Tensor):
+        """
+        Calculate the spline output, each feature of each sample is mapped to `out_size` features,
+        using `out_size` different B-spline basis functions, so the output shape is `(batch_size, in_size, out_size)`
+
+        Parameters:
+        - `inputs: tf.Tensor` Tensor with shape `(batch_size, in_size)`
+        
+        Returns: `tf.Tensor` Spline output tensor with shape `(batch_size, in_size, out_size)`
+        """
+        # calculate the B-spline output
+        spline_in = calc_spline_values(inputs, self.grid, self.spline_order) # (B, in_size, grid_basis_size)
+        # matrix multiply: (batch, in_size, grid_basis_size) @ (in_size, grid_basis_size, out_size) -> (batch, in_size, out_size)
+        spline_out = tf.einsum("bik,iko->bio", spline_in, self.spline_kernel)
+
+        return spline_out
 
     def update_grid_from_samples(self, inputs: tf.Tensor, margin: float = 0.01, grid_eps: float = 0.01):
         # check the inputs, and reshape inputs into 2D tensor (-1, in_size)
