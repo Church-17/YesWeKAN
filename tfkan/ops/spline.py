@@ -13,18 +13,20 @@ def calc_spline_values(x: tf.Tensor, grid: tf.Tensor, spline_order: int):
     Returns: `tf.Tensor` B-spline bases tensor with shape (batch_size, in_size, grid_size + spline_order)
     """
 
+    # Il tensore in input deve essere di rango 2 (matrice 2D) | Dimensione = (batch_size, n_records)
     assert x.shape.rank == 2
+    print(tf.shape(x))
     
-    # add a extra dimension to do broadcasting with shape (batch_size, in_size, 1)
+    # Aggiunta di una dimensione sull'ultimo asse | Dimensione = (batch_size, n_records, 1)
     x = tf.expand_dims(x, axis=-1)
 
-    # init the order-0 B-spline bases
+    # Definizione della B-spline di grado 0
     bases = tf.logical_and(
         tf.greater_equal(x, grid[:, :-1]), tf.less(x, grid[:, 1:])
     )
     bases = tf.cast(bases, x.dtype)
     
-    # iter to calculate the B-spline values
+    # Definizione ricorsiva delle B-spline dei gradi da 1 a spline_order
     for k in range(1, spline_order+1):
         bases = (
             (x - grid[:, :-(k+1)]) / (grid[:, k:-1] - grid[:, :-(k+1)]) * bases[:, :, :-1]
@@ -57,16 +59,15 @@ def fit_spline_coef(x: tf.Tensor, y: tf.Tensor, grid: tf.Tensor, spline_order: i
     Returns: `tf.Tensor` Spline coefficients tensor with shape `(in_size, grid_size + spline_order, out_size)`
     """
 
-    # evaluate the B-spline bases to get B_{k}(x_i)
-    # B with shape (batch_size, in_size, grid_size + spline_order)
+    # Calcolo delle B-spline B_{k}(x_i) (senza coefficienti) | Dimensione = (batch_size, n_records, grid_size + spline_order) RICONTROLLARE!
     B = calc_spline_values(x, grid, spline_order)
-    B = tf.transpose(B, perm=[1, 0, 2]) # (in_size, batch_size, grid_size + spline_order)
+    B = tf.transpose(B, perm=[1, 0, 2]) # Reshaping | Dimensione = (n_records, batch_size, grid_size + spline_order)
 
-    # reshape the output tensor to get Y, put the in_size to the first dimension
-    y = tf.transpose(y, perm=[1, 0, 2]) # (in_size, batch_size, out_size)
+    # Reshaping del vettore target | Dimensione = (batch_size, n_records, out_size) -> (n_records, batch_size, out_size)
+    y = tf.transpose(y, perm=[1, 0, 2])
 
-    # solve the linear equation to get the coef
-    # coef with shape (in_size, grid_size + spline_order, out_size)
+    # Risoluzione dell'equazione lineare per l'assegnazione dei coefficienti alle B-spline in modo che fittino con y
+    # Dimensione = (n_records, grid_size + spline_order, out_size) Spiegazione: l'i-esimo coefficiente ha dimensione pari a quella di ogni B-spline
     coef = tf.linalg.lstsq(B, y, l2_regularizer=l2_reg, fast=fast)
 
     return coef
