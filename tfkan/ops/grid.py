@@ -15,31 +15,35 @@ def build_adaptive_grid(x: tf.Tensor,  grid_size: int,  spline_order: int,  grid
     Returns: `tf.Tensor` Adaptive grid with shape `(in_size, grid_size + 2 * spline_order + 1)`
     """
 
-    # sort the inputs and build new grid according to the quantiles
+    # Formatta correttamente il vettore in input e lo ordina
+    x = tf.cast(x, dtype=dtype)
     total = tf.shape(x)[0]
+    n_records = tf.shape(x)[1]    ## MODIFICATO!
     x_sorted = tf.sort(x, axis=0)
 
-    # build the adaptive grid
-    adaptive_idx = tf.cast(tf.linspace(0, total - 1, grid_size + 1), tf.int32)
-    grid_adaptive = tf.gather(x_sorted, adaptive_idx) # (grid_size + 1, in_size)
+    # Griglia adattiva - Basata sui dati | Dimensione = (grid_size+1, n_records)
+    adaptive_idx = tf.cast(tf.linspace(0, total - 1, grid_size + 1), tf.int32) # Estremi degli intervalli
+    grid_adaptive = tf.gather(x_sorted, adaptive_idx)                          # Mappa i dati adattandoli agli estremi degli intervalli
 
-    # build the uniform grid
-    step = (x_sorted[-1] - x_sorted[0] + 2 * margin) / grid_size
-    grid_uniform = x_sorted[0] - margin + tf.range(grid_size + 1, dtype=dtype)[:,None] * step
+    # Griglia uniforme - Basata sull'intervallo di definizione | Dimensione = (grid_size+1, n_records)
+    step = (x_sorted[-1] - x_sorted[0] + 2 * margin) / grid_size                                # Appiezza degli intervalli (uniformi)         
+    grid_uniform = x_sorted[0] - margin + tf.range(grid_size + 1, dtype=dtype)[:,None] * step   # Estremi degli intervalli
+    grid_uniform = tf.reshape(grid_uniform, (6,n_records)) ## MODIFICATO!
 
-    # merge the adaptive grid and uniform grid
-    # grid with shape (grid_size + 1, in_size)
+    # Combina la griglia adattiva con quella uniforme, pesandole con un coefficiente grid_eps | Dimensione = (grid_size+1, n_records)
     grid = grid_eps * grid_uniform + (1 - grid_eps) * grid_adaptive
 
-    # extend left and right bound according to the spline order
-    # grid with shape (grid_size + 2 * spline_order + 1, in_size)
+    # Estende la griglia a seconda del grado della spline, una spline di ordine d ha bisogno di una griglia di dimensione grid_size + 2*d
+    # Dimensione = (grid_size + 2 * spline_order + 1, n_records)
     grid = tf.concat([
-        grid[:1] - step * tf.range(spline_order, 0, -1, dtype=dtype)[:,None],
+        grid[:1] - step * tf.range(spline_order, 0, -1, dtype=dtype)[:,None], # Aggiunge gli intervalli a sinistra 
         grid,
-        grid[-1:] + step * tf.range(1, spline_order + 1, dtype=dtype)[:,None],
+        grid[-1:] + step * tf.range(1, spline_order + 1, dtype=dtype)[:,None], # Aggiunge gli intervalli a destra
     ], axis=0)
 
-    # transpose the grid to (in_size, grid_size + 2 * spline_order + 1)
+    # Traspone la griglia per poterla utilizzare | Dimensione = (n_records, grid_size + 2 * spline_order + 1)
     grid = tf.transpose(grid)
 
     return grid
+
+print(build_adaptive_grid(tf.convert_to_tensor([list(range(100)) for _ in range(100)]), 5, 1))
