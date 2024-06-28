@@ -2,24 +2,24 @@ import tensorflow as tf
 
 def build_adaptive_grid(x: tf.Tensor,  grid_size: int,  spline_order: int,  grid_eps: float = 0.02,  margin: float = 0.01, dtype: tf.DType = tf.float32) -> tf.Tensor:
     """
-    Construct the adaptive grid based on input tensor
+        Costruisce la griglia adattiva basata sul tensore di input
 
-    Parameters:
-    - `x: tf.Tensor` Input tensor with shape `(batch_size, in_size)`
-    - `grid_size: int` Grid size
-    - `spline_order: int` Spline order
-    - `grid_eps: float` Weight for combining the adaptive grid and uniform grid
-    - `margin: float` Margin for extending the grid
-    - `dtype: DType` Data type for the grid
+        Parametri:
+        - `x: tf.Tensor` Tensore di input con forma `(batch_size, in_size)`
+        - `grid_size: int` Dimensione della griglia
+        - `spline_order: int` Ordine dello spline
+        - `grid_eps: float` Peso per combinare la griglia adattiva e la griglia uniforme
+        - `margin: float` Margine per estendere la griglia
+        - `dtype: DType` Tipo di dati per la griglia
 
-    Returns: `tf.Tensor` Adaptive grid with shape `(in_size, grid_size + 2 * spline_order + 1)`
+        Restituisce: `tf.Tensor` Griglia adattiva con forma `(in_size, grid_size + 2 * spline_order + 1)`
     """
 
     # Formatta correttamente il vettore in input e lo ordina
-    x = tf.cast(x, dtype=dtype)
-    total = tf.shape(x)[0]
-    n_records = tf.shape(x)[1]    ## MODIFICATO!
-    x_sorted = tf.sort(x, axis=0)
+    x = tf.cast(x, dtype=dtype) #converte x nel tipo dtype dato come input
+    total = tf.shape(x)[0] #si salva la dimensione del batch
+    n_records = tf.shape(x)[1]    #si salva il numero di elementi in input, cioè il numero di attributi 
+    x_sorted = tf.sort(x, axis=0) 
 
     # Griglia adattiva - Basata sui dati | Dimensione = (grid_size+1, n_records)
     adaptive_idx = tf.cast(tf.linspace(0, total - 1, grid_size + 1), tf.int32) # Estremi degli intervalli
@@ -28,7 +28,7 @@ def build_adaptive_grid(x: tf.Tensor,  grid_size: int,  spline_order: int,  grid
     # Griglia uniforme - Basata sull'intervallo di definizione | Dimensione = (grid_size+1, n_records)
     step = (x_sorted[-1] - x_sorted[0] + 2 * margin) / grid_size                                # Appiezza degli intervalli (uniformi)         
     grid_uniform = x_sorted[0] - margin + tf.range(grid_size + 1, dtype=dtype)[:,None] * step   # Estremi degli intervalli
-    grid_uniform = tf.reshape(grid_uniform, (6,n_records)) ## MODIFICATO!
+    grid_uniform = tf.reshape(grid_uniform, (6,n_records)) #fa il reshape della griglia uniforme    # MODIFICATO!
 
     # Combina la griglia adattiva con quella uniforme, pesandole con un coefficiente grid_eps | Dimensione = (grid_size+1, n_records)
     grid = grid_eps * grid_uniform + (1 - grid_eps) * grid_adaptive
@@ -44,6 +44,6 @@ def build_adaptive_grid(x: tf.Tensor,  grid_size: int,  spline_order: int,  grid
     # Traspone la griglia per poterla utilizzare | Dimensione = (n_records, grid_size + 2 * spline_order + 1)
     grid = tf.transpose(grid)
 
-    return grid
+    return grid #ritornala griglia
 
-print(build_adaptive_grid(tf.convert_to_tensor([list(range(100)) for _ in range(100)]), 5, 1))
+print(build_adaptive_grid(tf.convert_to_tensor([list(range(100)) for _ in range(100)]), 5, 1))#questo serve stamparlo?
