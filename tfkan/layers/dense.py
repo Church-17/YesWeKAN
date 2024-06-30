@@ -15,7 +15,7 @@ class DenseKAN(Layer):
         grid_range: tuple[float] | list[float] = (-1.0, 1.0), #range della griglia delle spline
         spline_initialize_stddev: float = 0.1, 
         basis_activation: str | Callable = 'silu',  
-        dtype = tf.float32, #tipo di dati 
+        dtype = tf.float64, #tipo di dati 
         **kwargs
     ):
         # Esegue il costruttore della superclasse (Layer)
@@ -153,7 +153,7 @@ class DenseKAN(Layer):
             Restituisce: `tf.Tensor` Tensore di output della spline con forma `(batch_size, in_size, out_size)`
         """
 
-        inputs = tf.cast(inputs, dtype=tf.float64)
+        inputs = tf.cast(inputs, dtype=self.dtype)
         spline_in = calc_spline_values(inputs, self.grid, self.spline_order) # (B, in_size, grid_basis_size)
         # Moltiplicazione matriciale con in coefficienti c_i: (batch, in_size, grid_basis_size) @ (in_size, grid_basis_size, out_size) -> (batch, in_size, out_size)
         spline_out = tf.einsum("bik,iko->bio", spline_in, self.spline_kernel) #esegue una somma di einstein tra i due tensori e assegna il risultato a spline_out
@@ -161,7 +161,7 @@ class DenseKAN(Layer):
         return spline_out
 
     def update_grid_from_samples(self, inputs: tf.Tensor, margin: float = 0.01, grid_eps: float = 0.01):
-        inputs = tf.cast(inputs, dtype=tf.float64)
+        inputs = tf.cast(inputs, dtype=self.dtype)
         # Controlla gli input e fa il reshape in un vettore 2D | Dimensione = (-1, in_size)
         
         
@@ -183,7 +183,7 @@ class DenseKAN(Layer):
 
 
     def extend_grid_from_samples(self, inputs: tf.Tensor, extend_grid_size: int, margin: float = 0.01, grid_eps: float = 0.01, l2_reg: float = 0, fast: bool = True):
-        inputs = tf.cast(inputs, dtype=tf.float64)
+        inputs = tf.cast(inputs, dtype=self.dtype)
         # Verifica che la griglia estesa sia di dimensione maggiore rispetto alla precedente
         try:
             assert extend_grid_size >= self.grid_size
