@@ -8,29 +8,28 @@ from ..ops.grid import build_adaptive_grid
 
 class DenseKAN(Layer):
     def __init__(self,
-        units: int,
-        use_bias: bool = True,
-        grid_size: int = 5,
-        spline_order: int = 3,
-        grid_range: tuple[float] | list[float] = (-1.0, 1.0),
-        spline_initialize_stddev: float = 0.1,
-        basis_activation: str | Callable = 'silu',
-        dtype = tf.float32,
+        units: int, #numero di neuroni del livello
+        use_bias: bool = True, #flag che indica se usare o no il bias nel livello
+        grid_size: int = 5, #dimensione di partenza delle griglie delle spline
+        spline_order: int = 3, #ordine delle spline
+        grid_range: tuple[float] | list[float] = (-1.0, 1.0), #range della griglia delle spline
+        spline_initialize_stddev: float = 0.1, 
+        basis_activation: str | Callable = 'silu',  
+        dtype = tf.float32, #tipo di dati 
         **kwargs
     ):
-        # Esegue il costruttore della superclasse
+        # Esegue il costruttore della superclasse (Layer)
         super().__init__(dtype=dtype, **kwargs)
 
-        # Save parameters in class
+        # salva i parametri nella classe
         self.units = units
         self.grid_size = grid_size
         self.spline_order = spline_order
         self.grid_range = grid_range
         self.basis_activation = basis_activation
         self.use_bias = use_bias
-
-        # Initialize parameters
         self.spline_initialize_stddev = spline_initialize_stddev
+
 
     def build(self, input_shape):
         # Controllo se l'input è un vettore o un tensore n-D
@@ -39,6 +38,7 @@ class DenseKAN(Layer):
         else:
             in_size = input_shape[-1]
 
+        #imposta parametri della classe in base alla dimensione dell'input
         self.in_size = in_size
         self.spline_basis_size = self.grid_size + self.spline_order
         bound = self.grid_range[1] -self.grid_range[0]
@@ -49,6 +49,7 @@ class DenseKAN(Layer):
             self.grid_range[1] + self.spline_order * bound / self.grid_size, # Estremo destro - grado_spline * ampiezza intervallo
             self.grid_size + 2 * self.spline_order + 1                       # Numero totale di intervalli
         )
+
         # Definisce un tensore con una griglia per ogni input
         self.grid = tf.repeat(self.grid[None, :], in_size, axis=0)
         self.grid = tf.Variable(
@@ -98,39 +99,39 @@ class DenseKAN(Layer):
 
     
     def call(self, inputs, *args, **kwargs):
-        # check the inputs, and reshape inputs into 2D tensor (-1, in_size)
+        # Controlla gli input e ridimensiona gli input in un tensore 2D (-1, in_size)
         inputs, orig_shape = self._check_and_reshape_inputs(inputs)
         output_shape = tf.concat([orig_shape, [self.units]], axis=0)
 
-        # calculate the B-spline output
+        # Calcola l'output B-spline
         spline_out = self.calc_spline_output(inputs)
 
-        # calculate the basis b(x) with shape (batch_size, in_size)
-        # add basis to the spline_out: phi(x) = c * (b(x) + spline(x)) using broadcasting
+        # Calcola la base b(x) con forma (batch_size, in_size)
+        # Aggiunge la base a spline_out: phi(x) = c * (b(x) + spline(x)) utilizzando il broadcasting
         spline_out += tf.expand_dims(self.basis_activation(inputs), axis=-1)
 
-        # scale the output
+        # Scala l'output
         spline_out *= tf.expand_dims(self.scale_factor, axis=0)
         
-        # aggregate the output using sum (on in_size dim) and reshape into the original shape
+        # Aggrega l'output usando la somma (sulla dimensione in_size) e ridimensiona alla forma originale        
         spline_out = tf.reshape(tf.reduce_sum(spline_out, axis=-2), output_shape)
 
-        # add bias
+        # Aggiunge il bias
         if self.use_bias:
             spline_out += self.bias
 
-        return spline_out
+        return spline_out #ritorna la spline in output
     
     def _check_and_reshape_inputs(self, inputs):
-        shape = tf.shape(inputs)
+        shape = tf.shape(inputs)  # shape dell input
         ndim = len(inputs.shape)  # Ottiene il numero di dimensioni del tensore
-        try:
+        try: #verifica se l'input sia bidimensionale e se non lo è genera un errore
             assert ndim >= 2
         except AssertionError:
             raise ValueError(f"expected min_ndim=2, found ndim={ndim}. Full shape received: {shape}")
 
         try:
-            assert inputs.shape[-1] == self.in_size # Controlla la dimensione di input
+            assert inputs.shape[-1] == self.in_size # Controlla che l’ultima dimensione del tensore di input corrisponda a self.in_size cioè la dimensione di input prevista
         except AssertionError:
             raise ValueError(f"expected last dimension of inputs to be {self.in_size}, found {shape[-1]}")
 
@@ -138,23 +139,24 @@ class DenseKAN(Layer):
         orig_shape = shape[:-1]
         inputs = tf.reshape(inputs, (-1, self.in_size))
 
-        return inputs, orig_shape
+        return inputs, orig_shape # Restituisce gli input ridimensionati e la forma originale
     
     def calc_spline_output(self, inputs: tf.Tensor):
-        """
-        Calculate the spline output, each feature of each sample is mapped to `out_size` features,
-        using `out_size` different B-spline basis functions, so the output shape is `(batch_size, in_size, out_size)`
 
-        Parameters:
-        - `inputs: tf.Tensor` Tensor with shape `(batch_size, in_size)`
-        
-        Returns: `tf.Tensor` Spline output tensor with shape `(batch_size, in_size, out_size)`
         """
+            Calcola la spline di output, ogni caratteristica di ogni campione viene mappata sulle caratteristiche di `out_size`,
+            utilizzando `out_size` diverse funzioni di base B-spline, quindi la forma dell'output è `(batch_size, in_size, out_size)`
+
+            Parametri:
+            - `inputs: tf.Tensor` Tensore con forma `(batch_size, in_size)`
+            
+            Restituisce: `tf.Tensor` Tensore di output della spline con forma `(batch_size, in_size, out_size)`
+        """
+
         inputs = tf.cast(inputs, dtype=tf.float64)
-        # Calcola le basi B-spline
         spline_in = calc_spline_values(inputs, self.grid, self.spline_order) # (B, in_size, grid_basis_size)
         # Moltiplicazione matriciale con in coefficienti c_i: (batch, in_size, grid_basis_size) @ (in_size, grid_basis_size, out_size) -> (batch, in_size, out_size)
-        spline_out = tf.einsum("bik,iko->bio", spline_in, self.spline_kernel)
+        spline_out = tf.einsum("bik,iko->bio", spline_in, self.spline_kernel) #esegue una somma di einstein tra i due tensori e assegna il risultato a spline_out
 
         return spline_out
 
@@ -221,8 +223,8 @@ class DenseKAN(Layer):
 
     # Aggiornamento della configurazione
     def get_config(self):
-        config = super(DenseKAN, self).get_config()
-        config.update({
+        config = super(DenseKAN, self).get_config() #ottiene la configurazione
+        config.update({ #aggiorna i parametri
             "units": self.units,
             "use_bias": self.use_bias,
             "grid_size": self.grid_size,
@@ -232,8 +234,9 @@ class DenseKAN(Layer):
             "basis_activation": self.basis_activation
         })
 
-        return config
+        return config #ritorna la configurazione aggiornata
     
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    
