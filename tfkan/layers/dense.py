@@ -163,6 +163,8 @@ class DenseKAN(Layer):
     def update_grid_from_samples(self, inputs: tf.Tensor, margin: float = 0.01, grid_eps: float = 0.01):
         inputs = tf.cast(inputs, dtype=tf.float64)
         # Controlla gli input e fa il reshape in un vettore 2D | Dimensione = (-1, in_size)
+        
+        
         inputs, _ = self._check_and_reshape_inputs(inputs)
 
         # Calcola l'approssimazione delle spline
@@ -177,10 +179,10 @@ class DenseKAN(Layer):
         # Ridefinisce la griglia e i coefficienti
         self.grid.assign(grid)
         self.spline_kernel.assign(updated_kernel)
-    
+
+
 
     def extend_grid_from_samples(self, inputs: tf.Tensor, extend_grid_size: int, margin: float = 0.01, grid_eps: float = 0.01, l2_reg: float = 0, fast: bool = True):
-        
         inputs = tf.cast(inputs, dtype=tf.float64)
         # Verifica che la griglia estesa sia di dimensione maggiore rispetto alla precedente
         try:
@@ -221,6 +223,7 @@ class DenseKAN(Layer):
             dtype=self.dtype
         )
 
+    
     # Aggiornamento della configurazione
     def get_config(self):
         config = super(DenseKAN, self).get_config() #ottiene la configurazione
@@ -239,4 +242,5 @@ class DenseKAN(Layer):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    
     

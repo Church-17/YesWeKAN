@@ -14,7 +14,6 @@ def calc_spline_values(x: tf.Tensor, grid: tf.Tensor, spline_order: int):
 
     # Il tensore in input deve essere di rango 2 (matrice 2D) | Dimensione = (batch_size, n_records), altrimenti si genera un errore
     assert x.shape.rank == 2
-    print(tf.shape(x)) #serve???
     
     # Aggiunta di una dimensione sull'ultimo asse | Dimensione = (batch_size, n_records, 1)
     x = tf.expand_dims(x, axis=-1)
