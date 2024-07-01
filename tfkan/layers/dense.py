@@ -1,6 +1,8 @@
 from typing import Callable
 import tensorflow as tf
 from keras import Layer
+from scipy.interpolate import BSpline
+import numpy as np
 
 from ..ops.spline import fit_spline_coef, calc_spline_values
 from ..ops.grid import build_adaptive_grid
@@ -8,14 +10,14 @@ from ..ops.grid import build_adaptive_grid
 
 class DenseKAN(Layer):
     def __init__(self,
-        units: int, #numero di neuroni del livello
-        use_bias: bool = True, #flag che indica se usare o no il bias nel livello
-        grid_size: int = 5, #dimensione di partenza delle griglie delle spline
-        spline_order: int = 3, #ordine delle spline
-        grid_range: tuple[float] | list[float] = (-1.0, 1.0), #range della griglia delle spline
+        units: int,
+        use_bias: bool = True,
+        grid_size: int = 5,
+        spline_order: int = 3,
+        grid_range: tuple[float] | list[float] = (-1.0, 1.0),
         spline_initialize_stddev: float = 0.1, 
         basis_activation: str | Callable = 'silu',  
-        dtype = tf.float64, #tipo di dati 
+        dtype = tf.float64,
         **kwargs
     ):
         # Esegue il costruttore della superclasse (Layer)
@@ -29,7 +31,7 @@ class DenseKAN(Layer):
         self.basis_activation = basis_activation
         self.use_bias = use_bias
         self.spline_initialize_stddev = spline_initialize_stddev
-
+        self.spline_list = [] 
 
     def build(self, input_shape):
         # Controllo se l'input è un vettore o un tensore n-D
@@ -96,6 +98,7 @@ class DenseKAN(Layer):
             self.bias = None
 
         self.built = True
+        self._update_spline_list() 
 
     
     def call(self, inputs, *args, **kwargs):
@@ -122,6 +125,28 @@ class DenseKAN(Layer):
 
         return spline_out #ritorna la spline in output
     
+    def _update_spline_list(self):
+        self.spline_list = []
+        for i in range(self.in_size):
+            for j in range(self.units):
+                knots = self.grid[i].numpy()
+                coeffs = self.spline_kernel[i, :, j].numpy()
+
+                # Assicurarsi che il numero di coefficienti sia coerente con i nodi e il grado
+                n = len(knots) - self.spline_order - 1
+                if len(coeffs) > n:
+                    coeffs = coeffs[:n]
+                elif len(coeffs) < n:
+                    coeffs = np.pad(coeffs, (0, n - len(coeffs)), mode='constant')
+
+                try:
+                    spline = BSpline(knots, coeffs, self.spline_order)
+                    self.spline_list.append(spline)
+                except ValueError as e:
+                    print(f"Warning: Could not create spline for input {i}, unit {j}. Error: {str(e)}")
+                    print(f"Knots shape: {knots.shape}, Coeffs shape: {coeffs.shape}, Degree: {self.spline_order}")
+
+
     def _check_and_reshape_inputs(self, inputs):
         shape = tf.shape(inputs)  # shape dell input
         ndim = len(inputs.shape)  # Ottiene il numero di dimensioni del tensore
@@ -179,6 +204,7 @@ class DenseKAN(Layer):
         # Ridefinisce la griglia e i coefficienti
         self.grid.assign(grid)
         self.spline_kernel.assign(updated_kernel)
+        self._update_spline_list()
 
 
 
@@ -222,6 +248,13 @@ class DenseKAN(Layer):
             trainable=True,
             dtype=self.dtype
         )
+        self._update_spline_list()
+
+    def get_all_splines(self):
+        """
+        Ritorna le B-spline del livello
+        """
+        return self.spline_list
 
     
     # Aggiornamento della configurazione
@@ -242,5 +275,3 @@ class DenseKAN(Layer):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
-    
