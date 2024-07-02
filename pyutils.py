@@ -2,7 +2,7 @@ import pandas as pd
 import tensorflow as tf
 import numpy as np
 import datetime
-from tfkan.layers import DenseKAN
+from tfkan import DenseKAN
 
 def dataframe_to_ndarray(dataframe: pd.DataFrame) -> tf.Tensor:
     dates = dataframe["vdate"]     # Date originali
