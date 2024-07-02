@@ -45,5 +45,3 @@ def build_adaptive_grid(x: tf.Tensor,  grid_size: int,  spline_order: int,  grid
     grid = tf.transpose(grid)
 
     return grid #ritornala griglia
-
-#print(build_adaptive_grid(tf.convert_to_tensor([list(range(100)) for _ in range(100)]), 5, 1))#questo serve stamparlo?

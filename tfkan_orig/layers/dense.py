@@ -31,21 +31,17 @@ class DenseKAN(Layer):
         self.basis_activation = basis_activation
         self.use_bias = use_bias
         self.spline_initialize_stddev = spline_initialize_stddev
-        self.spline_list = [] 
+        self.spline_list = []
 
     def build(self, input_shape):
-        # Controllo se l'input è un vettore o un tensore n-D
-        if isinstance(input_shape, int):
-            in_size = input_shape
-        else:
-            in_size = input_shape[-1]
+        # Prende la dimensione di input e la salva nell'oggetto'
+        self.in_size = input_shape[-1]
 
-        #imposta parametri della classe in base alla dimensione dell'input
-        self.in_size = in_size
-        self.spline_basis_size = self.grid_size + self.spline_order
+        # Calcola parametri delle spline
+        spline_basis_size = self.grid_size + self.spline_order
         bound = self.grid_range[1] -self.grid_range[0]
 
-        # Adatta la griglia al grado della B-spline
+        # Adatta la griglia al grado delle B-spline
         self.grid = tf.linspace(
             self.grid_range[0] - self.spline_order * bound / self.grid_size, # Estremo sinistro - grado_spline * ampiezza intervallo
             self.grid_range[1] + self.spline_order * bound / self.grid_size, # Estremo destro - grado_spline * ampiezza intervallo
@@ -53,7 +49,7 @@ class DenseKAN(Layer):
         )
 
         # Definisce un tensore con una griglia per ogni input
-        self.grid = tf.repeat(self.grid[None, :], in_size, axis=0)
+        self.grid = tf.repeat(self.grid[None, :], self.in_size, axis=0)
         self.grid = tf.Variable(
             initial_value=tf.cast(self.grid, dtype=self.dtype),
             trainable=False,
@@ -64,7 +60,7 @@ class DenseKAN(Layer):
         # Coefficienti di ogni spline-basis [Indicati con c_i nel paper]
         self.spline_kernel = self.add_weight(
             name="spline_kernel",
-            shape=(self.in_size, self.spline_basis_size, self.units),
+            shape=(self.in_size, spline_basis_size, self.units),
             initializer=tf.keras.initializers.RandomNormal(stddev=self.spline_initialize_stddev),
             trainable=True,
             dtype=self.dtype
@@ -239,11 +235,11 @@ class DenseKAN(Layer):
 
         # Ridefinizione dei parametri c_i
         self.grid_size = extend_grid_size
-        self.spline_basis_size = extend_grid_size + self.spline_order
+        spline_basis_size = extend_grid_size + self.spline_order
         delattr(self, "spline_kernel")
         self.spline_kernel = self.add_weight(
             name="spline_kernel",
-            shape=(self.in_size, self.spline_basis_size, self.units),
+            shape=(self.in_size, spline_basis_size, self.units),
             initializer=tf.keras.initializers.Constant(updated_kernel),
             trainable=True,
             dtype=self.dtype
