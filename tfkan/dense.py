@@ -118,8 +118,8 @@ class DenseKAN(Layer):
         self.spline_list = []
         for i in range(self.input_dim):
             for j in range(self.units):
-                knots = self.grid[i].numpy()
-                coeffs = self.spline_kernel[i, :, j].numpy()
+                knots = self.grid[i]#.numpy()
+                coeffs = self.spline_kernel[i, :, j]#.numpy()
 
                 # Assicurarsi che il numero di coefficienti sia coerente con i nodi e il grado
                 n = len(knots) - self.spline_order - 1
