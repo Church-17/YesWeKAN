@@ -3,3 +3,5 @@ matplotlib
 ipykernel
 scikit-learn
 pandas
+lime
+keras_tuner

@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from tfkan import DenseKAN
 
-def standardize(dataset: np.ndarray) -> tf.Tensor:
+def standardize(dataset: np.ndarray) -> np.ndarray:
     for i in range(dataset.shape[1]):
         column = dataset[:, i]
         dataset[:, i] = (column - np.min(column)) / (np.max(column) - np.min(column))
