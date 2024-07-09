@@ -3,35 +3,76 @@ import tensorflow as tf
 from keras import Layer
 from scipy.interpolate import BSpline
 import numpy as np
+import keras
 
 
 class DenseKAN(Layer):
+    """
+    Costruisce un livello un livello di tipo KAN densamente connesso
+
+    Parametri:
+    - `units: int` Dimensione del tensore di output
+    - `spline_order: int` Grado delle funzioni spline
+    - `grid_size: int` Numero di intervalli della griglia
+    - `grid_range: int` Estremi della griglia
+    - `basis_activation: str` Funzione di attivazione
+    - `use_bias: bool` Scelta se usare o no il bias
+    - `kernel_initializer: str` Inizializzatore dei coefficienti delle spline
+    - `scale_initializer: str` Inizializzatore dei fattori di scala delle spline
+    - `bias_initializer: str` Inizializzatore del bias
+    - `kernel_regularizer: str` Regolarizzatore dei coefficienti delle spline
+    - `scale_regularizer: str` Regolarizzatore dei fattori di scala delle spline
+    - `bias_regularizer: str` Regolarizzatore del bias
+    - `activity_regularizer: str` Regolarizzatore dell'output
+    - `kernel_constraint: str` Limitatore dei coefficienti delle spline
+    - `scale_constraint: str` Limitatore dei fattori di scala delle spline
+    - `bias_constraint: str` Limitatore del bias
+    - `dtype: ` Tipo dei coefficienti delle spline
+    """
+
     def __init__(self,
         units: int,
-        use_bias: bool = True,
-        grid_size: int = 5,
         spline_order: int = 3,
+        grid_size: int = 5,
         grid_range: tuple[float] = (-1, 1),
-        spline_initialize_stddev: float = 0.1, 
-        basis_activation: str | Callable = 'silu',  
-        dtype = tf.float64,
+        basis_activation: str = 'silu',
+        use_bias: bool = True,
+        kernel_initializer: str | None = "random_normal",
+        scale_initializer: str | None = "glorot_uniform",
+        bias_initializer: str | None = "zeros",
+        kernel_regularizer: str | None = None,
+        scale_regularizer: str | None = None,
+        bias_regularizer: str | None = None,
+        activity_regularizer: str | None = None,
+        kernel_constraint: str | None = None,
+        scale_constraint: str | None = None,
+        bias_constraint: str | None = None,
+        dtype: tf.DType = tf.float64,
         **kwargs
     ):
         # Esegue il costruttore della superclasse
-        super().__init__(dtype=dtype, **kwargs)
+        super().__init__(dtype=dtype, activity_regularizer=activity_regularizer, **kwargs)
 
         # Salva i parametri nella classe e inizializza le variabili di classe
         self.units = units
-        self.grid_size = grid_size
         self.spline_order = spline_order
+        self.grid_size = grid_size
         self.grid_range = grid_range
-        self.basis_activation = basis_activation
+        self.basis_activation = keras.activations.get(basis_activation)
         self.use_bias = use_bias
-        self.spline_initialize_stddev = spline_initialize_stddev
+        self.kernel_initializer = keras.initializers.get(kernel_initializer)
+        self.scale_initializer = keras.initializers.get(scale_initializer)
+        self.bias_initializer = keras.initializers.get(bias_initializer)
+        self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
+        self.scale_regularizer = keras.regularizers.get(scale_regularizer)
+        self.bias_regularizer = keras.regularizers.get(bias_regularizer)
+        self.kernel_constraint = keras.constraints.get(kernel_constraint)
+        self.scale_constraint = keras.constraints.get(scale_constraint)
+        self.bias_constraint = keras.constraints.get(bias_constraint)
         self.spline_list = []
 
     def build(self, input_shape):
-        # Prende la dimensione di input e la salva nell'oggetto'
+        # Prende la dimensione di input e la salva nell'oggetto
         self.input_dim = input_shape[-1]
 
         # Calcola parametri delle spline
@@ -43,7 +84,7 @@ class DenseKAN(Layer):
         linspace_grid = tf.linspace(
             self.grid_range[0] - self.spline_order * bound / self.grid_size, # Estremo sinistro - grado_spline * ampiezza intervallo
             self.grid_range[1] + self.spline_order * bound / self.grid_size, # Estremo destro - grado_spline * ampiezza intervallo
-            self.grid_size + 2 * self.spline_order + 1,                       # Numero totale di intervalli
+            self.grid_size + 2 * self.spline_order + 1,                      # Numero totale di intervalli
         )
 
         # DA CAPIRE, MODIFICATO
@@ -54,7 +95,9 @@ class DenseKAN(Layer):
         self.spline_kernel = self.add_weight(
             name="spline_kernel",
             shape=(self.input_dim, spline_basis_size, self.units),
-            initializer=tf.keras.initializers.RandomNormal(stddev=self.spline_initialize_stddev),
+            initializer=self.kernel_initializer,
+            regularizer=self.kernel_regularizer,
+            constraint=self.kernel_constraint,
             trainable=True,
             dtype=self.dtype,
         )
@@ -63,25 +106,21 @@ class DenseKAN(Layer):
         self.scale_factor = self.add_weight(
             name="scale_factor",
             shape=(self.input_dim, self.units),
-            initializer=tf.keras.initializers.GlorotUniform(),
+            initializer=self.scale_initializer,
+            regularizer=self.scale_regularizer,
+            constraint=self.scale_constraint,
             trainable=True,
             dtype=self.dtype,
         )
-
-        # Basis activation [Indicata con b(x) nel paper]
-        if isinstance(self.basis_activation, str):
-            self.basis_activation = tf.keras.activations.get(self.basis_activation)
-        elif not isinstance(self.basis_activation, Callable):
-            raise ValueError(f"Expected basis_activation to be str or callable, found {type(self.basis_activation)}")
 
         # Coefficienti delle Basis activation (bias) [Indicati con w_b nel paper]
         if self.use_bias:
             self.bias = self.add_weight(
                 name="bias",
                 shape=(self.units,),
-                initializer=tf.keras.initializers.Zeros(),
-                trainable=True,
-                dtype=self.dtype
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
             )
         else:
             self.bias = None
@@ -118,8 +157,8 @@ class DenseKAN(Layer):
         self.spline_list = []
         for i in range(self.input_dim):
             for j in range(self.units):
-                knots = self.grid[i]#.numpy()
-                coeffs = self.spline_kernel[i, :, j]#.numpy()
+                knots = self.grid[i]
+                coeffs = self.spline_kernel[i, :, j]
 
                 # Assicurarsi che il numero di coefficienti sia coerente con i nodi e il grado
                 n = len(knots) - self.spline_order - 1
@@ -174,20 +213,22 @@ class DenseKAN(Layer):
 
         return spline_out
     
-    # Aggiornamento della configurazione
+    # Override metodo get_config, per aggiungere i nuovi parametri
     def get_config(self):
-        config = super(DenseKAN, self).get_config() #ottiene la configurazione
-        config.update({ #aggiorna i parametri
+        # Recupera configurazione base del livello
+        config = super().get_config()
+
+        # Aggiunta parametri specifici di questo livello
+        config.update({
             "units": self.units,
             "use_bias": self.use_bias,
             "grid_size": self.grid_size,
             "spline_order": self.spline_order,
             "grid_range": self.grid_range,
-            "spline_initialize_stddev": self.spline_initialize_stddev,
             "basis_activation": self.basis_activation
         })
 
-        return config #ritorna la configurazione aggiornata
+        return config
     
     @classmethod
     def from_config(cls, config):
