@@ -3,11 +3,12 @@ import tensorflow as tf
 import numpy as np
 from tfkan import DenseKAN
 
-def standardize(dataset: np.ndarray) -> np.ndarray:
-    for i in range(dataset.shape[1]):
-        column = dataset[:, i]
-        dataset[:, i] = (column - np.min(column)) / (np.max(column) - np.min(column))
-    return dataset
+def standardize(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.astype(float)
+    for i in range(df.shape[1]):
+        column = df.iloc[:, i]
+        df.iloc[:, i] = (column - np.min(column)) / (np.max(column) - np.min(column))
+    return df
 
 def build_model(nodes: list, input_dim: int, loss: str='mse', optimizer: str='adam', metrics: list=['mse'], mlp: bool=True):
     model = tf.keras.Sequential()
