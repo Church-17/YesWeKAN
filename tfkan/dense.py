@@ -186,18 +186,19 @@ class Spline:
     
     def __call__(self, x: float | tf.Tensor):
         # Prepara x come un array
-        if isinstance(x, tf.Tensor):
-            orig_shape = x.shape
-        new_x = tf.cast(tf.reshape(x, -1), self.t.dtype)
+        x = tf.convert_to_tensor(x, dtype=self.t.dtype)
+        orig_shape = x.shape
+        x = tf.reshape(x, -1)
 
         # Calcola output spline 
-        new_x = tf.expand_dims(new_x, axis=-1)
-        out = spline(new_x, self.t, self.c, self.k, self.ws, self.b, self.wb)
+        x = tf.expand_dims(x, axis=-1)
+        out = spline(x, self.t, self.c, self.k, self.ws, self.b, self.wb)
 
         # Ridimensiona alla forma originale
-        if out.shape == (1, 1, 1):
+        out = tf.reshape(out, orig_shape)
+        if out.shape == ():
             return float(out)
-        return tf.reshape(out, orig_shape)
+        return out
 
 
 def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor) -> tf.Tensor:
