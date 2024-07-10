@@ -1,4 +1,3 @@
-from scipy.interpolate import BSpline
 import tensorflow as tf
 import keras
 
@@ -121,22 +120,7 @@ class DenseKAN(keras.Layer):
     
     def call(self, inputs: tf.Tensor):
         inputs = tf.cast(inputs, dtype=self.dtype)
-
-        # Calcola l'output delle spline
-        spline_out = spline(inputs, self.grid, self.spline_kernel, self.spline_order)
-
-        # Moltiplica ogni output delle spline per il suo scale_factor w_s
-        spline_out *= self.scale_factor
-
-        # Calcola la base b(x) con forma (batch_size, input_dim) e trasformala in matrice (batch_size, input_dim, output_dim)
-        basis = tf.repeat(tf.expand_dims(self.basis_activation(inputs), axis=-1), self.units, axis=-1)
-
-        # Se c'è il bias, calcola w_b * b(x)
-        if self.use_bias:
-            basis *= self.bias
-            
-        # Somma w_s * spline(x) con w_b * b(x)
-        spline_out += basis
+        spline_out = spline(inputs, self.grid, self.spline_kernel, self.spline_order, self.scale_factor, self.basis_activation, self.bias)
         
         # Per ogni neurone del livello, somma i risultati degli archi entranti        
         spline_out = tf.reduce_sum(spline_out, axis=-2)
@@ -149,9 +133,10 @@ class DenseKAN(keras.Layer):
         
         spline_list = []
         for i in range(self.input_dim):
+            spline_list.append([])
             for j in range(self.units):
-                func = Spline(self.grid[0], self.spline_kernel[i, :, j], self.spline_order)
-                spline_list.append(func)
+                func = Spline(self.grid[0], self.spline_kernel[i, :, j], self.spline_order, self.scale_factor[0, i, j], self.basis_activation, (self.bias[0, i, j] if self.use_bias else None))
+                spline_list[i].append(func)
         return spline_list
 
     # Override metodo get_config, per aggiungere i nuovi parametri
@@ -185,16 +170,19 @@ class DenseKAN(keras.Layer):
 
 
 class Spline:
-    def __init__(self, knots: tf.Tensor, coeff: tf.Tensor, degree: int) -> None:
-        # Controlla valifità parametri spline
-        assert knots.shape.rank == 1 and coeff.shape.rank == 1
-        assert isinstance(degree, int)
-        assert (len(coeff) >= len(knots) - degree - 1 >= degree + 1)
+    def __init__(self, t: tf.Tensor, c: tf.Tensor, k: int, ws: int | tf.Tensor, b, wb: int | tf.Tensor | None) -> None:
+        # Controlla validità parametri spline
+        assert t.shape.rank == 1 and c.shape.rank == 1
+        assert isinstance(k, int) and (isinstance(ws, int) or ws.shape.rank == 0) and (wb is None or isinstance(wb, int) or ws.shape.rank == 0)
+        assert (len(c) >= len(t) - k - 1 >= k + 1)
         
         # Salva parametri nell'oggetto
-        self.knots = tf.expand_dims(knots, axis=0)
-        self.coeff = tf.expand_dims(tf.expand_dims(coeff, axis=0), axis=-1)
-        self.degree = degree
+        self.t = tf.expand_dims(t, axis=0)
+        self.c = tf.reshape(c, (1, -1, 1))
+        self.k = k
+        self.ws = tf.reshape(ws, (1, 1, 1))
+        self.b = b
+        self.wb = tf.reshape(wb, (1, 1, 1)) if wb is not None else None
     
     def __call__(self, x: tf.Tensor):
         # Prepara x come un array
@@ -203,26 +191,43 @@ class Spline:
 
         # Calcola output spline 
         x = tf.expand_dims(x, axis=-1)
-        out = spline(x, self.knots, self.coeff, self.degree)
+        out = spline(x, self.t, self.c, self.k, self.ws, self.b, self.wb)
 
         # Ridimensiona alla forma originale
         return tf.reshape(out, orig_shape)
 
-def spline(x: tf.Tensor, grid: tf.Tensor, coeff: tf.Tensor, degree: int) -> tf.Tensor:
+
+def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor) -> tf.Tensor:
     # Aggiunta di una dimensione sull'ultimo asse
     x = tf.expand_dims(x, axis=-1)
 
     # Definizione della B-spline di grado 0
-    bases = tf.logical_and(tf.greater_equal(x, grid[:, :-1]), tf.less(x, grid[:, 1:]))
-    bases = tf.cast(bases, x.dtype)
+    spline_out = tf.logical_and(tf.greater_equal(x, t[:, :-1]), tf.less(x, t[:, 1:]))
+    spline_out = tf.cast(spline_out, x.dtype)
     
     # Definizione ricorsiva delle B-spline fino al grado voluto
-    for k in range(1, degree+1):
-        bases = (
-            (x - grid[:, :-(k+1)]) / (grid[:, k:-1] - grid[:, :-(k+1)]) * bases[:, :, :-1]
+    for k in range(1, k+1):
+        spline_out = (
+            (x - t[:, :-(k+1)]) / (t[:, k:-1] - t[:, :-(k+1)]) * spline_out[:, :, :-1]
         ) + (
-            (grid[:, k+1:] - x) / (grid[:, k+1:] - grid[:, 1:-k]) * bases[:, :, 1:]
+            (t[:, k+1:] - x) / (t[:, k+1:] - t[:, 1:-k]) * spline_out[:, :, 1:]
         )
 
-    return tf.einsum("bik,iko->bio", bases, coeff)
+    # Combinazione lineare delle B-spline con i coefficienti
+    spline_out = tf.einsum("bik,iko->bio", spline_out, c)
+
+    # Moltiplica ogni output delle spline per il suo scale_factor
+    spline_out *= ws
+
+    # Calcola b(x)
+    basis = tf.repeat(b(x), spline_out.shape[-1], axis=-1)
+
+    # Se viene dato wb, calcola wb * b(x)
+    if wb is not None:
+        basis *= wb
+
+    # Somma w_s * spline(x) con w_b * b(x)
+    spline_out += basis
+
+    return spline_out
 
