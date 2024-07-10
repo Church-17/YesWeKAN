@@ -1,4 +1,3 @@
-import numpy as np
 from scipy.interpolate import BSpline
 import tensorflow as tf
 import keras
@@ -24,7 +23,7 @@ class DenseKAN(keras.Layer):
     - `kernel_constraint: str` Limitatore dei coefficienti delle spline
     - `scale_constraint: str` Limitatore dei fattori di scala delle spline
     - `bias_constraint: str` Limitatore del bias
-    - `dtype: ` Tipo dei coefficienti delle spline
+    - `dtype: DType` Tipo dei coefficienti delle spline
     """
 
     def __init__(self,
@@ -67,9 +66,15 @@ class DenseKAN(keras.Layer):
         self.scale_constraint = keras.constraints.get(scale_constraint)
         self.bias_constraint = keras.constraints.get(bias_constraint)
         
+        if self.units <= 0:
+            raise ValueError("units must be positive")
+        
+        if self.spline_order < 0:
+            raise ValueError("spline_order cannot be nagetive")
+            
         self.spline_coefficient_size = self.grid_size - self.spline_order - 1
         if self.spline_coefficient_size <= self.spline_order:
-            raise ValueError("Grid_size must be at least 2*(spline_order + 1)")
+            raise ValueError("grid_size must be at least 2*(spline_order + 1)")
 
     def build(self, input_shape):
         # Prende la dimensione di input e la salva nell'oggetto
@@ -79,7 +84,7 @@ class DenseKAN(keras.Layer):
         linspace = tf.linspace(self.grid_range[0], self.grid_range[1], self.grid_size)
         self.grid = tf.cast(tf.repeat(linspace[None, :], self.input_dim, axis=0), dtype=self.dtype)
 
-        # Coefficienti di ogni spline-basis [Indicati con c_i nel paper]
+        # Coefficienti di ogni spline-basis [c_i]
         self.spline_kernel = self.add_weight(
             name="spline_kernel",
             shape=(self.input_dim, self.spline_coefficient_size, self.units),
@@ -89,7 +94,7 @@ class DenseKAN(keras.Layer):
             dtype=self.dtype,
         )
 
-        # Coefficienti della B-spline complessiva [Indicati con w_s nel paper]
+        # Coefficienti della spline complessiva [w_s]
         self.scale_factor = self.add_weight(
             name="scale_factor",
             shape=(1, self.input_dim, self.units),
@@ -99,7 +104,7 @@ class DenseKAN(keras.Layer):
             dtype=self.dtype,
         )
 
-        # Coefficienti delle Basis activation (bias) [Indicati con w_b nel paper]
+        # Coefficienti delle basis activation (bias) [w_b]
         if self.use_bias:
             self.bias = self.add_weight(
                 name="bias",
@@ -120,48 +125,41 @@ class DenseKAN(keras.Layer):
         # Calcola l'output delle spline
         spline_out = spline(inputs, self.grid, self.spline_kernel, self.spline_order)
 
-        # Moltiplica ogni output delle spline per il suo scale_factor [Ws]
+        # Moltiplica ogni output delle spline per il suo scale_factor w_s
         spline_out *= self.scale_factor
 
-        # Calcola la base b(x) con forma (batch_size, input_dim)
+        # Calcola la base b(x) con forma (batch_size, input_dim) e trasformala in matrice (batch_size, input_dim, output_dim)
         basis = tf.repeat(tf.expand_dims(self.basis_activation(inputs), axis=-1), self.units, axis=-1)
 
+        # Se c'è il bias, calcola w_b * b(x)
         if self.use_bias:
             basis *= self.bias
             
+        # Somma w_s * spline(x) con w_b * b(x)
         spline_out += basis
         
-        # Aggrega l'output usando la somma (sulla dimensione input_dim) e ridimensiona alla forma originale        
+        # Per ogni neurone del livello, somma i risultati degli archi entranti        
         spline_out = tf.reduce_sum(spline_out, axis=-2)
 
-
-        return spline_out #ritorna la spline in output
+        return spline_out
     
     def get_spline_list(self):
+        if not self.built:
+            raise Exception('Model not built')
+        
         spline_list = []
         for i in range(self.input_dim):
             for j in range(self.units):
                 knots = self.grid[i]
                 coeffs = self.spline_kernel[i, :, j]
+                func = Spline(self.grid[0], self.spline_kernel[i, :, j], self.spline_order)
+                # func = BSpline(knots, coeffs, self.spline_order)
+                spline_list.append(func)
+        return spline_list
 
-                # Assicurarsi che il numero di coefficienti sia coerente con i nodi e il grado
-                n = len(knots) - self.spline_order - 1
-                if len(coeffs) > n:
-                    coeffs = coeffs[:n]
-                elif len(coeffs) < n:
-                    coeffs = np.pad(coeffs, (0, n - len(coeffs)), mode='constant')
-
-                try:
-                    spline = BSpline(knots, coeffs, self.spline_order)
-                    spline_list.append(spline)
-                except ValueError as e:
-                    print(f"Warning: Could not create spline for input {i}, unit {j}. Error: {str(e)}")
-                    print(f"Knots shape: {knots.shape}, Coeffs shape: {coeffs.shape}, Degree: {self.spline_order}")
-    
     # Override metodo get_config, per aggiungere i nuovi parametri
     def get_config(self):
-        # Recupera configurazione base del livello
-        config = super().get_config()
+        config = super().get_config() # Recupera configurazione base del livello
 
         # Aggiunta parametri specifici di questo livello
         config.update({
@@ -178,21 +176,30 @@ class DenseKAN(keras.Layer):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
 
-def spline(x: tf.Tensor, grid: tf.Tensor, coeff: tf.Tensor, degree: int):
-    # Aggiunta di una dimensione sull'ultimo asse | Dimensione = (batch_size, n_records, 1)
+class Spline:
+    def __init__(self, knots: tf.Tensor, coeff: tf.Tensor, degree: int) -> None:
+        self.knots = tf.expand_dims(knots, axis=0)
+        self.coeff = tf.expand_dims(tf.expand_dims(coeff, axis=0), axis=-1)
+        self.degree = degree
+    
+    def __call__(self, x: tf.Tensor):
+        print(x.shape, self.knots.shape, self.coeff.shape)
+        x = tf.expand_dims(x, axis=-1)
+        out = spline(x, self.knots, self.coeff, self.degree)
+        return tf.reshape(out, [-1])
+
+def spline(x: tf.Tensor, grid: tf.Tensor, coeff: tf.Tensor, degree: int) -> tf.Tensor:
+    # Aggiunta di una dimensione sull'ultimo asse
     x = tf.expand_dims(x, axis=-1)
 
     # Definizione della B-spline di grado 0
-    bases = tf.logical_and(
-        tf.greater_equal(x, grid[:, :-1]), tf.less(x, grid[:, 1:]) #crea un tensore booleano che controlla se x è maggiore del corrispondente elemento di grid[:, :-1] e minore di grid[:, 1:]
-    )
-    bases = tf.cast(bases, x.dtype) #converte il tensore booleano nel tipo di dati di x
+    bases = tf.logical_and(tf.greater_equal(x, grid[:, :-1]), tf.less(x, grid[:, 1:]))
+    bases = tf.cast(bases, x.dtype)
     
     # Definizione ricorsiva delle B-spline fino al grado voluto
     for k in range(1, degree+1):
-        bases = ( #aggiorna le spline di ordine k
+        bases = (
             (x - grid[:, :-(k+1)]) / (grid[:, k:-1] - grid[:, :-(k+1)]) * bases[:, :, :-1]
         ) + (
             (grid[:, k+1:] - x) / (grid[:, k+1:] - grid[:, 1:-k]) * bases[:, :, 1:]
