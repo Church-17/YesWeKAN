@@ -119,7 +119,7 @@ class DenseKAN(keras.Layer):
 
         self.built = True
     
-    def call(self, inputs):
+    def call(self, inputs: tf.Tensor):
         inputs = tf.cast(inputs, dtype=self.dtype)
 
         # Calcola l'output delle spline
@@ -150,10 +150,7 @@ class DenseKAN(keras.Layer):
         spline_list = []
         for i in range(self.input_dim):
             for j in range(self.units):
-                knots = self.grid[i]
-                coeffs = self.spline_kernel[i, :, j]
                 func = Spline(self.grid[0], self.spline_kernel[i, :, j], self.spline_order)
-                # func = BSpline(knots, coeffs, self.spline_order)
                 spline_list.append(func)
         return spline_list
 
@@ -164,11 +161,20 @@ class DenseKAN(keras.Layer):
         # Aggiunta parametri specifici di questo livello
         config.update({
             "units": self.units,
-            "use_bias": self.use_bias,
-            "grid_size": self.grid_size,
             "spline_order": self.spline_order,
+            "grid_size": self.grid_size,
             "grid_range": self.grid_range,
-            "basis_activation": self.basis_activation
+            "basis_activation": self.basis_activation,
+            "use_bias": self.use_bias,
+            "kernel_initializer": self.kernel_initializer,
+            "scale_initializer": self.scale_initializer,
+            "bias_initializer": self.bias_initializer,
+            "kernel_regularizer": self.kernel_regularizer,
+            "scale_regularizer": self.scale_regularizer,
+            "bias_regularizer": self.bias_regularizer,
+            "kernel_constraint": self.kernel_constraint,
+            "scale_constraint": self.scale_constraint,
+            "bias_constraint": self.bias_constraint,
         })
 
         return config
@@ -177,17 +183,30 @@ class DenseKAN(keras.Layer):
     def from_config(cls, config):
         return cls(**config)
 
+
 class Spline:
     def __init__(self, knots: tf.Tensor, coeff: tf.Tensor, degree: int) -> None:
+        # Controlla valifità parametri spline
+        assert knots.shape.rank == 1 and coeff.shape.rank == 1
+        assert isinstance(degree, int)
+        assert (len(coeff) >= len(knots) - degree - 1 >= degree + 1)
+        
+        # Salva parametri nell'oggetto
         self.knots = tf.expand_dims(knots, axis=0)
         self.coeff = tf.expand_dims(tf.expand_dims(coeff, axis=0), axis=-1)
         self.degree = degree
     
     def __call__(self, x: tf.Tensor):
-        print(x.shape, self.knots.shape, self.coeff.shape)
+        # Prepara x come un array
+        orig_shape = x.shape
+        x = tf.reshape(x, -1)
+
+        # Calcola output spline 
         x = tf.expand_dims(x, axis=-1)
         out = spline(x, self.knots, self.coeff, self.degree)
-        return tf.reshape(out, [-1])
+
+        # Ridimensiona alla forma originale
+        return tf.reshape(out, orig_shape)
 
 def spline(x: tf.Tensor, grid: tf.Tensor, coeff: tf.Tensor, degree: int) -> tf.Tensor:
     # Aggiunta di una dimensione sull'ultimo asse
