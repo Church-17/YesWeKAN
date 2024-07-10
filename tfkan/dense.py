@@ -226,7 +226,7 @@ def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, w
     if wb is not None:
         basis *= wb
 
-    # Somma w_s * spline(x) con w_b * b(x)
+    # Somma ws * spline(x) con wb * b(x)
     spline_out += basis
 
     return spline_out
