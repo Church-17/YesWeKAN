@@ -42,7 +42,7 @@ class DenseKAN(keras.Layer):
         kernel_constraint: str | None = None,
         scale_constraint: str | None = None,
         bias_constraint: str | None = None,
-        dtype: tf.DType = tf.float64,
+        dtype: tf.DType = tf.float32,
         **kwargs
     ):
         # Esegue il costruttore della superclasse
