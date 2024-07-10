@@ -184,11 +184,11 @@ class Spline:
         self.b = b
         self.wb = tf.reshape(wb, (1, 1, 1)) if wb is not None else None
     
-    def __call__(self, x: int | tf.Tensor):
+    def __call__(self, x: float | tf.Tensor):
         # Prepara x come un array
         if isinstance(x, tf.Tensor):
             orig_shape = x.shape
-        new_x = tf.reshape(x, -1)
+        new_x = tf.cast(tf.reshape(x, -1), self.t.dtype)
 
         # Calcola output spline 
         new_x = tf.expand_dims(new_x, axis=-1)
@@ -202,7 +202,7 @@ class Spline:
 
 def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor) -> tf.Tensor:
     # Aggiunta di una dimensione sull'ultimo asse
-    x = tf.expand_dims(x, axis=-1)
+    x = tf.expand_dims(x, -1)
 
     # Definizione della B-spline di grado 0
     spline_out = tf.logical_and(tf.greater_equal(x, t[:, :-1]), tf.less(x, t[:, 1:]))
