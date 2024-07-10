@@ -197,7 +197,7 @@ class Spline:
         # Ridimensiona alla forma originale
         if isinstance(x, tf.Tensor):
             return tf.reshape(out, orig_shape)
-        return int(out)
+        return float(out)
 
 
 def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor) -> tf.Tensor:
