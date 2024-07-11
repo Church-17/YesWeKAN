@@ -4,7 +4,6 @@ import numpy as np
 from tfkan import DenseKAN
 
 def standardize(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.astype(float)
     for i in range(df.shape[1]):
         column = df.iloc[:, i]
         df.iloc[:, i] = (column - np.min(column)) / (np.max(column) - np.min(column))
