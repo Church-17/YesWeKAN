@@ -1,6 +1,8 @@
 import tensorflow as tf
 import keras
 
+from .spline import Spline, spline
+
 class DenseKAN(keras.Layer):
     """
     Costruisce un livello un livello di tipo KAN densamente connesso
@@ -32,16 +34,16 @@ class DenseKAN(keras.Layer):
         grid_range: tuple[float] = (-1, 1),
         basis_activation: str = 'silu',
         use_bias: bool = True,
-        kernel_initializer: str | None = keras.initializers.RandomNormal(stddev=0.1),
-        scale_initializer: str | None = keras.initializers.Ones(),
-        bias_initializer: str | None = keras.initializers.GlorotNormal(),
-        kernel_regularizer: str | None = None,
-        scale_regularizer: str | None = None,
-        bias_regularizer: str | None = None,
-        activity_regularizer: str | None = None,
-        kernel_constraint: str | None = None,
-        scale_constraint: str | None = None,
-        bias_constraint: str | None = None,
+        kernel_initializer: keras.Initializer | str | None = keras.initializers.RandomNormal(stddev=0.1),
+        scale_initializer: keras.Initializer | str | None = keras.initializers.Ones(),
+        bias_initializer: keras.Initializer | str | None = keras.initializers.GlorotNormal(),
+        kernel_regularizer: keras.Regularizer | str | None = None,
+        scale_regularizer: keras.Regularizer | str | None = None,
+        bias_regularizer: keras.Regularizer | str | None = None,
+        activity_regularizer: keras.Regularizer | str | None = None,
+        kernel_constraint: keras.constraints.Constraint | str | None = None,
+        scale_constraint: keras.constraints.Constraint | str | None = None,
+        bias_constraint: keras.constraints.Constraint | str | None = None,
         dtype: tf.DType = tf.float32,
         **kwargs
     ):
@@ -167,71 +169,4 @@ class DenseKAN(keras.Layer):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-class Spline:
-    def __init__(self, t: tf.Tensor, c: tf.Tensor, k: int, ws: int | tf.Tensor, b, wb: int | tf.Tensor | None) -> None:
-        # Controlla validità parametri spline
-        assert t.shape.rank == 1 and c.shape.rank == 1
-        assert isinstance(k, int) and (isinstance(ws, int) or ws.shape.rank == 0) and (wb is None or isinstance(wb, int) or ws.shape.rank == 0)
-        assert (len(c) >= len(t) - k - 1 >= k + 1)
-        
-        # Salva parametri nell'oggetto
-        self.t = tf.expand_dims(t, axis=0)
-        self.c = tf.reshape(c, (1, -1, 1))
-        self.k = k
-        self.ws = tf.reshape(ws, (1, 1, 1))
-        self.b = b
-        self.wb = tf.reshape(wb, (1, 1, 1)) if wb is not None else None
-    
-    def __call__(self, x: float | tf.Tensor):
-        # Prepara x come un array
-        x = tf.convert_to_tensor(x, dtype=self.t.dtype)
-        orig_shape = x.shape
-        x = tf.reshape(x, -1)
-
-        # Calcola output spline 
-        x = tf.expand_dims(x, axis=-1)
-        out = spline(x, self.t, self.c, self.k, self.ws, self.b, self.wb)
-
-        # Ridimensiona alla forma originale
-        out = tf.reshape(out, orig_shape)
-        if out.shape == ():
-            return float(out)
-        return out
-
-
-def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor) -> tf.Tensor:
-    # Aggiunta di una dimensione sull'ultimo asse
-    x = tf.expand_dims(x, -1)
-
-    # Definizione della B-spline di grado 0
-    spline_out = tf.logical_and(tf.greater_equal(x, t[:, :-1]), tf.less(x, t[:, 1:]))
-    spline_out = tf.cast(spline_out, x.dtype)
-    
-    # Definizione ricorsiva delle B-spline fino al grado voluto
-    for k in range(1, k+1):
-        spline_out = (
-            (x - t[:, :-(k+1)]) / (t[:, k:-1] - t[:, :-(k+1)]) * spline_out[:, :, :-1]
-        ) + (
-            (t[:, k+1:] - x) / (t[:, k+1:] - t[:, 1:-k]) * spline_out[:, :, 1:]
-        )
-
-    # Combinazione lineare delle B-spline con i coefficienti
-    spline_out = tf.einsum("bik,iko->bio", spline_out, c)
-
-    # Moltiplica ogni output delle spline per il suo scale_factor
-    spline_out *= ws
-
-    # Calcola b(x)
-    basis = tf.repeat(b(x), spline_out.shape[-1], axis=-1)
-
-    # Se viene dato wb, calcola wb * b(x)
-    if wb is not None:
-        basis *= wb
-
-    # Somma ws * spline(x) con wb * b(x)
-    spline_out += basis
-
-    return spline_out
 
