@@ -137,7 +137,7 @@ class DenseKAN(keras.Layer):
         for i in range(self.input_dim):
             spline_list.append([])
             for j in range(self.units):
-                func = Spline(self.grid[0], self.spline_kernel[i, :, j], self.spline_order, self.scale_factor[0, i, j], self.basis_activation, (self.bias[0, i, j] if self.use_bias else None))
+                func = Spline(self.grid[0], self.spline_kernel[i, :, j], self.spline_order, self.scale_factor[0, i, j], self.basis_activation, (self.bias[0, i, j] if self.use_bias else None), self.dtype)
                 spline_list[i].append(func)
         return spline_list
 

@@ -14,12 +14,12 @@ class Spline:
     - `wb:` Coefficienti del bias
     """
 
-    def __init__(self, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor | None) -> None:
+    def __init__(self, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor | None, dtype: tf.DType = tf.float32) -> None:
         # Controlla validità parametri spline
-        t = tf.convert_to_tensor(t)
-        c = tf.convert_to_tensor(c)
-        ws = tf.convert_to_tensor(ws)
-        wb = tf.convert_to_tensor(wb) if wb is not None else None
+        t = tf.convert_to_tensor(t, dtype)
+        c = tf.convert_to_tensor(c, dtype)
+        ws = tf.convert_to_tensor(ws, dtype)
+        wb = tf.convert_to_tensor(wb, dtype) if wb is not None else None
         assert t.shape.rank == 1 and c.shape.rank == 1
         assert isinstance(k, int) and ws.shape.rank == 0 and (wb is None or ws.shape.rank == 0)
         assert (len(c) >= len(t) - k - 1 >= k + 1)
@@ -31,10 +31,11 @@ class Spline:
         self.ws = tf.reshape(ws, (1, 1, 1))
         self.b = keras.activations.get(b)
         self.wb = tf.reshape(wb, (1, 1, 1)) if wb is not None else None
+        self.dtype = dtype
     
     def __call__(self, x: float | tf.Tensor) -> float | tf.Tensor:
         # Prepara x come un array
-        x = tf.convert_to_tensor(x, dtype=self.t.dtype)
+        x = tf.convert_to_tensor(x, self.dtype)
         orig_shape = x.shape
         x = tf.reshape(x, -1)
 
@@ -49,7 +50,7 @@ class Spline:
         return out
 
 # Funzione che calcola effettivamente il valore della spline dati tutti i parametri e gli input
-def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor) -> tf.Tensor:
+def spline(x: tf.Tensor, t: tf.Tensor, c: tf.Tensor, k: int, ws: tf.Tensor, b, wb: tf.Tensor | None) -> tf.Tensor:
     # Aggiunta di una dimensione sull'ultimo asse
     x = tf.expand_dims(x, -1)
 
