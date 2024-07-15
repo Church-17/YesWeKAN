@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 class Spline:
     """
@@ -21,6 +22,8 @@ class Spline:
         wb = tf.convert_to_tensor(wb, dtype) if wb is not None else None
         assert t.shape.rank == 1 and c.shape.rank == 1
         assert isinstance(k, int) and k >= 0 and ws.shape.rank == 0 and (wb is None or ws.shape.rank == 0)
+        check_sort = t.numpy()
+        assert np.all(check_sort[:-1] <= check_sort[1:])
         assert (len(c) >= len(t) - k - 1 >= k + 1)
         
         # Salva parametri nell'oggetto, convertendoli alla shape usata dalla funzione spline

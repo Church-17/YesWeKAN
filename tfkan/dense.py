@@ -67,10 +67,13 @@ class DenseKAN(tf.keras.Layer):
         self.bias_constraint = tf.keras.constraints.get(bias_constraint)
         
         if self.units <= 0:
-            raise ValueError("units must be positive")
+            raise ValueError("units must be positive integer")
         
         if self.spline_order < 0:
-            raise ValueError("spline_order cannot be nagetive")
+            raise ValueError("spline_order must be non negative integer")
+        
+        if len(self.grid_range) != 2 or self.grid_range[0] >= self.grid_range[1]:
+            raise ValueError("Incorrect grid_range")
             
         self.spline_coefficient_size = self.grid_size - self.spline_order - 1
         if self.spline_coefficient_size <= self.spline_order:
