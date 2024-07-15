@@ -1,9 +1,8 @@
 import tensorflow as tf
-import keras
 
 from .spline import Spline, spline
 
-class DenseKAN(keras.Layer):
+class DenseKAN(tf.keras.Layer):
     """
     Costruisce un livello un livello di tipo KAN densamente connesso
 
@@ -34,16 +33,16 @@ class DenseKAN(keras.Layer):
         grid_range: tuple[float] = (-1, 1),
         basis_activation: str = 'silu',
         use_bias: bool = True,
-        kernel_initializer: keras.Initializer | str | None = keras.initializers.RandomNormal(stddev=0.1),
-        scale_initializer: keras.Initializer | str | None = keras.initializers.Ones(),
-        bias_initializer: keras.Initializer | str | None = keras.initializers.GlorotNormal(),
-        kernel_regularizer: keras.Regularizer | str | None = None,
-        scale_regularizer: keras.Regularizer | str | None = None,
-        bias_regularizer: keras.Regularizer | str | None = None,
-        activity_regularizer: keras.Regularizer | str | None = None,
-        kernel_constraint: keras.constraints.Constraint | str | None = None,
-        scale_constraint: keras.constraints.Constraint | str | None = None,
-        bias_constraint: keras.constraints.Constraint | str | None = None,
+        kernel_initializer: tf.keras.Initializer | str | None = tf.keras.initializers.RandomNormal(stddev=0.1),
+        scale_initializer: tf.keras.Initializer | str | None = tf.keras.initializers.Ones(),
+        bias_initializer: tf.keras.Initializer | str | None = tf.keras.initializers.GlorotNormal(),
+        kernel_regularizer: tf.keras.Regularizer | str | None = None,
+        scale_regularizer: tf.keras.Regularizer | str | None = None,
+        bias_regularizer: tf.keras.Regularizer | str | None = None,
+        activity_regularizer: tf.keras.Regularizer | str | None = None,
+        kernel_constraint: tf.keras.constraints.Constraint | str | None = None,
+        scale_constraint: tf.keras.constraints.Constraint | str | None = None,
+        bias_constraint: tf.keras.constraints.Constraint | str | None = None,
         dtype: tf.DType = tf.float32,
         **kwargs
     ):
@@ -55,17 +54,17 @@ class DenseKAN(keras.Layer):
         self.spline_order = spline_order
         self.grid_size = grid_size
         self.grid_range = grid_range
-        self.basis_activation = keras.activations.get(basis_activation)
+        self.basis_activation = tf.keras.activations.get(basis_activation)
         self.use_bias = use_bias
-        self.kernel_initializer = keras.initializers.get(kernel_initializer)
-        self.scale_initializer = keras.initializers.get(scale_initializer)
-        self.bias_initializer = keras.initializers.get(bias_initializer)
-        self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
-        self.scale_regularizer = keras.regularizers.get(scale_regularizer)
-        self.bias_regularizer = keras.regularizers.get(bias_regularizer)
-        self.kernel_constraint = keras.constraints.get(kernel_constraint)
-        self.scale_constraint = keras.constraints.get(scale_constraint)
-        self.bias_constraint = keras.constraints.get(bias_constraint)
+        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
+        self.scale_initializer = tf.keras.initializers.get(scale_initializer)
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.kernel_regularizer = tf.keras.regularizers.get(kernel_regularizer)
+        self.scale_regularizer = tf.keras.regularizers.get(scale_regularizer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
+        self.scale_constraint = tf.keras.constraints.get(scale_constraint)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
         
         if self.units <= 0:
             raise ValueError("units must be positive")

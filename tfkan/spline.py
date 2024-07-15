@@ -1,5 +1,4 @@
 import tensorflow as tf
-import keras
 
 class Spline:
     """
@@ -29,7 +28,7 @@ class Spline:
         self.c = tf.reshape(c, (1, -1, 1))
         self.k = k
         self.ws = tf.reshape(ws, (1, 1, 1))
-        self.b = keras.activations.get(b)
+        self.b = tf.keras.activations.get(b)
         self.wb = tf.reshape(wb, (1, 1, 1)) if wb is not None else None
         self.dtype = dtype
     
