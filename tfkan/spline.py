@@ -21,7 +21,7 @@ class Spline:
         ws = tf.convert_to_tensor(ws, dtype)
         wb = tf.convert_to_tensor(wb, dtype) if wb is not None else None
         assert t.shape.rank == 1 and c.shape.rank == 1
-        assert isinstance(k, int) and ws.shape.rank == 0 and (wb is None or ws.shape.rank == 0)
+        assert isinstance(k, int) and k >= 0 and ws.shape.rank == 0 and (wb is None or ws.shape.rank == 0)
         assert (len(c) >= len(t) - k - 1 >= k + 1)
         
         # Salva parametri nell'oggetto, convertendoli alla shape usata dalla funzione spline
