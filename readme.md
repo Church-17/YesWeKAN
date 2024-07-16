@@ -1,6 +1,6 @@
 # Progetto DL24: YesWeKAN - Istruzioni
 
-In questo progetto abbiamo fatto uso di librerie custom, ovvero di classi implementate da noi in file `.py` nella directory del progetto. Questo preclude l'utilizzo di Colab per eseguire i notebook in maniera automatica. È possibile eseguire i notebook su Colab dopo essersi assicurati di aver introdotto nella directory di Colab tutti i file necessari all'esecuzione e dopo aver installato tutte le librerie utilizzate nel progetto.
+In questo progetto abbiamo fatto uso di librerie custom, ovvero di classi implementate da noi in file `.py` nella directory del progetto. Questo preclude l'utilizzo di Colab per eseguire i notebook in maniera automatica. È possibile eseguire i notebook su Colab dopo essersi assicurati di aver introdotto nella directory di Colab tutti i file necessari all'esecuzione e dopo aver installato tutte le librerie utilizzate nel progetto. Abbiamo inoltre notato che la riproducibilità può essere dipendente dalla versione di Python utilizzata: per questo ci teniamo a precisare che abbiamo svolto tutti gli esperimenti su Python `3.12.4`
 
 ## Installazione delle librerie
 
