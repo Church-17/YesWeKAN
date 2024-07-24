@@ -1,0 +1,25 @@
+intro: benvenuti
+particolarità: no mlp
+come è nato il progetto (paper recente, potenziale, fascino)
+obiettivi:
+- studiare KAN (principio matematico e come questo può essere utile in DL)
+- confrontarle (non banale causa poco studio dietro)
+- sfruttarne spiegabilità (caratteristica chiave di KAN)
+motivi:
+- paper teorico, non su dataset reale, noi prova su reale
+- nostro e altrui interesse su una nuova architettura (promettente e sviluppi futuri)
+applicazioni:
+- supporto decisionale (DL)
+- stima trasparente (tramite spiegabilità KAN)
+- ambiti dove richiesti modelli più piccoli
+
+Implementazione:
+- DenseKAN: no implementazione tf ufficiale, fatta a mano
+- modelli da confrontare: scopo confronto non solo vs mlp
+- metriche e grafici: regressione + r2, heatmap, linechart
+- spiegabilità: approcci sia globali che locali, barchart, grafici spline
+sperimentazione:
+- tuning: per confronto modelli forti
+- addestramento: con tempi, su molte epoche per guardare overfit, ma ricaricando migliori prestazioni
+- confronto: tramite grafici intuitivi
+- trasparenza: tramite grafici intuitivi
